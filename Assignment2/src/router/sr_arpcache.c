@@ -20,8 +20,22 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
     /* fill in code here */
 }
 
+
+bool difftime(uint32_t now, uint32_t sent) {
+
+}
 void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
-    /* fill in code here */
+    
+    if (difftime(time(NULL), request->sent)) {
+        if (request->times_sent >= 5) {
+            // send icmp host unreachable
+            arpreq_destroy(request)
+        } else {
+            // send arp request
+            request->sent = now
+            request->times_sent++
+        }
+    }
 }
 
 /* You should not need to touch the rest of this code. */
