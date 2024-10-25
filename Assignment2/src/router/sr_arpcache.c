@@ -26,14 +26,60 @@ bool difftime(uint32_t now, uint32_t sent) {
 }
 void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
     
-    if (difftime(time(NULL), request->sent)) {
-        if (request->times_sent >= 5) {
-            // send icmp host unreachable
-            arpreq_destroy(request)
-        } else {
-            // send arp request
-            request->sent = now
-            request->times_sent++
+    if (difftime(time(NULL), request->sent) <= 1.0) {
+        return;
+    }
+
+    if (request->times_sent >= 5) {
+        // send icmp host unreachable
+        arpreq_destroy(request)
+    } else {
+        // send arp request
+        struct sr_if *iface = sr_if_get_interface(sr, request->iface);
+        if (!iface) {
+            fprintf(stderr, "Interface not found\n");
+            return;
+        }
+        
+        /* Arp Request Packet consists of Ethernet Header and Arp Header*/
+        size_t arp_packet_len = sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr);
+        uint8_t *arp_packet = (uint8_t *)malloc(arp_packet_len);
+
+        /* Fill in the Ethernet Header */
+        struct sr_ethernet_hdr *ethernet_hdr = (struct sr_ethernet_hdr *)arp_packet;
+        memset(ethernet_hdr->ether_dhost, 0xff, ETHER_ADDR_LEN);
+        ethernet_hdr->ether_shost = iface->ether_addr;
+        ethernet_hdr->ether_type = htons(ETHERTYPE_ARP);
+
+        /* Fill in the Arp Header */
+        /*  unsigned short ar_hrd; (set to arp_hrd_ethernet)
+            unsigned short ar_pro;  (set to ethertype_ip)
+            unsigned char ar_hln; (set to length of a mac address)
+            unsigned char ar_pln;  (set to length of an IP address)
+            unsigned short ar_op; (set to ar_op_request)
+            unsigned char ar_sha[ETHER_ADDR_LEN];  (set to the current arpreq’s first packet’s interface’s addr)
+            uint32_t ar_sip; (set to current arpreq’s first packet’s interface’s ip)
+            unsigned char ar_tha[ETHER_ADDR_LEN];  (set to 0xff, since broadcasted)
+            uint32_t ar_tip; (set to current arpreq’s ip)
+        */
+
+        struct sr_arp_hdr *arp_hdr = (struct sr_arp_hdr *)(arp_packet + sizeof(struct sr_ethernet_hdr));
+        arp_hdr->ar_hrd = htons(1);
+        arp_hdr->ar_pro = htons(ETHERTYPE_IP);
+        arp_hdr->ar_hln = ETHER_ADDR_LEN;
+        arp_hdr->ar_pln = 4;
+        arp_hdr->ar_op = htons(1);
+        memcpy(arp_hdr->ar_sha, iface->ether_addr, ETHER_ADDR_LEN);
+        arp_hdr->ar_sip = iface->ip;
+        memset(arp_hdr->ar_tha, 0xff, ETHER_ADDR_LEN);
+        arp_hdr->ar_tip = request->ip;
+        
+        /* Send the packet */
+        sr_send_packet(sr, arp_packet, arp_packet_len, iface->name);
+        free(arp_packet);
+
+        request->sent = time(NULL);
+        request->times_sent++;
         }
     }
 }
