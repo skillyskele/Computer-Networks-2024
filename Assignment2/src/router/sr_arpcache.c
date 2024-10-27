@@ -25,13 +25,13 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
     }
 }
 
-struct sr_rt *sr_lookup_route(struct sr_instance *sr, uint32_t ip) {
+struct sr_rt *sr_lookup_route(struct sr_rt *cur_rt, uint32_t ip) {
     // search through routing table to find the mac address of the destination ip
-    while (sr) {
-        if (sr->dest.s_addr == ip) {
-            return &(sr->rt);
+    while (cur_rt) {
+        if (cur_rt->dest.s_addr == ip) {
+            return &(cur_rt->rt);
         }
-        sr = sr->next;
+        cur_rt = cur_rt->next;
     }
     return NULL;
 }
@@ -96,8 +96,8 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
 
             // Populate Ethernet header
             // search through routing table to find the correct interface
-            sr_rt_t *rt = sr_lookup_route(sr->routing_table, cur_ip_hdr->ip_src);
-            sr_if_t *return_iface = sr_get_interface(sr, rt->iface); // match 192.168.1.10 with the interface 192.168.1.0/24, for example
+            struct sr_rt *rt = sr_lookup_route(sr->routing_table, cur_ip_hdr->ip_src);
+            struct sr_if *return_iface = sr_get_interface(sr, rt->iface); // match 192.168.1.10 with the interface 192.168.1.0/24, for example
             
             
             sr_ethernet_hdr_t *ethernet_hdr = (sr_ethernet_hdr_t *)icmp_packet;
@@ -133,8 +133,8 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
         /* Fill in the Ethernet Header */
         struct sr_ethernet_hdr *ethernet_hdr = (struct sr_ethernet_hdr *)arp_packet; 
         memset(ethernet_hdr->ether_dhost, 0xff, ETHER_ADDR_LEN); // broadcast
-        ethernet_hdr->ether_shost = iface->ether_addr; // source is the interface's mac address
-        ethernet_hdr->ether_type = htons(ETHERTYPE_ARP); 
+        ethernet_hdr->ether_shost = iface->ether_addr; // source is the interface's mac address USE MEMCPY??
+        ethernet_hdr->ether_type = htons(ETHERTYPE_ARP); // USE MEMSET???
 
         /* Fill in the Arp Header */
         /*  unsigned short ar_hrd; (set to arp_hrd_ethernet)
