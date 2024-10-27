@@ -167,6 +167,6 @@ struct sr_if *get_interface_from_ip(struct sr_instance *, uint32_t);
 struct sr_if *get_interface_from_eth(struct sr_instance *, uint8_t *);
 
 
-struct sr_rt *sr_lookup_route(struct sr_instance *sr, uint32_t ip);
+struct sr_rt *sr_lookup_route(struct sr_rt* , uint32_t ip);
 
 #endif

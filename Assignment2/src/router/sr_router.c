@@ -124,11 +124,11 @@ void sr_handlepacket(struct sr_instance* sr,
           if (outgoing_iface) {
             if (req_ip_hdr->ip_p != ip_protocol_icmp) {
               unsigned int error_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t);
-              handle_icmp_error_reply(sr, error_len, interface, outgoing_iface, req_ip_hdr);
+              handle_icmp_error_reply(sr, packet, error_len, interface, outgoing_iface, req_ip_hdr);
 
             }
             if (req_icmp_hdr->icmp_type == 8) {
-              handle_icmp_echo_reply(sr, len, interface, outgoing_iface,  req_ip_hdr, req_icmp_hdr);
+              handle_icmp_echo_reply(sr, packet, len, interface, outgoing_iface,  req_ip_hdr, req_icmp_hdr);
             } 
           } else {
             // Debugging Print Statements
@@ -174,19 +174,9 @@ void sr_handle_arprequest(struct sr_instance* sr, sr_arp_hdr_t *arp_pkt, unsigne
   struct sr_ethernet_hdr *ethernet_hdr = (struct sr_ethernet_hdr *)arp_reply; 
   memcpy(ethernet_hdr->ether_dhost, ((sr_ethernet_hdr_t *) packet)->ether_shost, ETHER_ADDR_LEN); // broadcast
   memcpy(ethernet_hdr->ether_shost, matching_iface->addr, ETHER_ADDR_LEN); // mac address that matches the interface for router
-  ethernet_hdr->ether_type = htons(ETHERTYPE_ARP); 
+  ethernet_hdr->ether_type = htons(ethertype_arp); 
 
-  // ARP headers
-  /*unsigned short ar_hrd; (set to arp_hrd_ethernet)
-    unsigned short ar_pro;  (set to ethertype_ip)
-    unsigned char ar_hln; (set to length of a mac address)
-    unsigned char ar_pln;  (set to length of an IP address)
-    unsigned short ar_op; (set to ar_op_reply)
-    unsigned char ar_sha[ETHER_ADDR_LEN];  (set to receiving interface’s addr)
-    uint32_t ar_sip; (set to receiving interface’s ip)
-    unsigned char ar_tha[ETHER_ADDR_LEN]; (set to original packet’s ether_shost)
-    uint32_t ar_tip; (set to original packet’s sip)
-  */
+ 
   struct sr_arp_hdr *arp_hdr = (struct sr_arp_hdr *)(arp_reply + sizeof(struct sr_ethernet_hdr));
   arp_hdr->ar_hrd = htons(arp_hrd_ethernet);
   arp_hdr->ar_pro = htons(ethertype_ip);
@@ -352,7 +342,7 @@ void sr_handle_ip_forwarding(struct sr_instance* sr, uint8_t *forward_pkt, unsig
   sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *)error_pkt;
   
 // create packet
-  uint8_t *err_pkt = create_ip_forwarding_error_packet(error_pkt, forward_pkt, incoming_if, error_pkt_len, ip_hdr, eth_hdr);
+  create_ip_forwarding_error_packet(error_pkt, forward_pkt, incoming_if, error_pkt_len, ip_hdr, eth_hdr);
 
   // fill in some ICMP fields
   icmp_hdr->icmp_sum = 0;
@@ -363,7 +353,7 @@ void sr_handle_ip_forwarding(struct sr_instance* sr, uint8_t *forward_pkt, unsig
   if (forward_ip_hdr->ip_ttl < 1) {
     printf("TTL expired. Sending ICMP Time Exceeded.\n");
     // SEND ICMP TIME EXCEEDED PACKET
-    icmp_11_error(sr, err_pkt, error_pkt_len, interface, ip_hdr, icmp_hdr);
+    icmp_11_error(sr, error_pkt, error_pkt_len, interface, ip_hdr, icmp_hdr);
   } else {
     printf("TTL is %d. Packet can be forwarded.\n", ip_hdr->ip_ttl);
   }
@@ -374,7 +364,7 @@ void sr_handle_ip_forwarding(struct sr_instance* sr, uint8_t *forward_pkt, unsig
   struct sr_rt *rt = sr_lookup_route(sr->routing_table, forward_ip_hdr->ip_src);
   if (rt == NULL) {
     //send ICMP destination net unreachable
-    icmp_3_error(sr, err_pkt, error_pkt_len, interface, ip_hdr, icmp_hdr);
+    icmp_3_error(sr, error_pkt, error_pkt_len, interface, ip_hdr, icmp_hdr);
   }
   struct sr_if *outgoing_if = sr_get_interface(sr, rt->interface); // rt tells you you need to send 192.168.1.10 to interface eth0, where it's 192.168.1.0
 
@@ -392,7 +382,7 @@ void sr_handle_ip_forwarding(struct sr_instance* sr, uint8_t *forward_pkt, unsig
   } 
 }
 
-void icmp_11_error(struct sr_instance *sr, uint8_t *error_pkt, unsigned int error_len, char *interface, sr_ip_hdr_t *ip_hdr, sr_icmp_hdr_t *icmp_hdr) {
+void icmp_11_error(struct sr_instance *sr, uint8_t *error_pkt, unsigned int error_len, char *interface, struct sr_ip_hdr_t *ip_hdr, struct sr_icmp_hdr_t *icmp_hdr) {
   // send ICMP time exceeded packet
   icmp_hdr->icmp_type = 11;
   icmp_hdr->icmp_code = 0;
@@ -410,7 +400,7 @@ void icmp_11_error(struct sr_instance *sr, uint8_t *error_pkt, unsigned int erro
   return;
 }
 
-void icmp_3_error(struct sr_instance *sr, uint8_t *error_pkt, unsigned int error_len, char *interface, sr_ip_hdr_t *ip_hdr, sr_icmp_hdr_t *icmp_hdr) {
+void icmp_3_error(struct sr_instance *sr, uint8_t *error_pkt, unsigned int error_len, char *interface, struct sr_ip_hdr_t *ip_hdr, struct sr_icmp_hdr_t *icmp_hdr) {
   // send ICMP destination unreachable packet
   icmp_hdr->icmp_type = 3;
   icmp_hdr->icmp_code = 0;
@@ -429,7 +419,7 @@ void icmp_3_error(struct sr_instance *sr, uint8_t *error_pkt, unsigned int error
 }
 
 
-create_ip_forwarding_error_packet(uint8_t * error_pkt, uint8_t * forward_ip_pkt, struct sr_if *incoming_if, 
+void create_ip_forwarding_error_packet(uint8_t * error_pkt, uint8_t * forward_ip_pkt, struct sr_if *incoming_if, 
                                   size_t error_pkt_len, sr_ip_hdr_t *ip_hdr, sr_ethernet_hdr_t *eth_hdr) {
   // make ethernet headers
   memcpy(eth_hdr->ether_dhost, ((sr_ethernet_hdr_t *) forward_ip_pkt)->ether_shost, ETHER_ADDR_LEN);

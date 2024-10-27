@@ -72,12 +72,22 @@ void handle_ip_request(struct sr_instance* , sr_ip_hdr_t* , unsigned int , char*
 void handle_icmp_request(struct sr_instance* , sr_icmp_hdr_t* , unsigned int , char* , uint8_t*);
 void handle_icmp_reply(struct sr_instance* , sr_icmp_hdr_t* , unsigned int , char* , uint8_t*);
 
-void handle_icmp_error_reply(struct sr_instance* , unsigned int , struct sr_if* , struct sr_if* , sr_ip_hdr_t*);
-void handle_icmp_echo_reply(struct sr_instance* , unsigned int , struct sr_if* , struct sr_if* , sr_ip_hdr_t* , sr_icmp_hdr_t*);
-void sr_handle_ip_forwarding(struct sr_instance* , unsigned int , struct sr_if* , struct sr_if* , sr_ip_hdr_t*);
+void handle_icmp_error_reply(struct sr_instance* , uint8_t* , unsigned int , char* , struct sr_if*, sr_ip_hdr_t*);
+void handle_icmp_echo_reply(struct sr_instance* , uint8_t* , unsigned int , char* , struct sr_if* , sr_ip_hdr_t* , sr_icmp_hdr_t*);
+uint8_t* create_icmp_replypacket(struct sr_instance* , uint8_t* , unsigned int , char* , struct sr_if* , sr_ip_hdr_t*);
 
-struct sr_rt *sr_lookup_route(struct sr_instance *sr, uint32_t ip); // from sr_arpcache.h
+void create_ip_forwarding_error_packet(uint8_t* , uint8_t* , struct sr_if* , size_t , sr_ip_hdr_t* , sr_ethernet_hdr_t*);
 
+void sr_handle_ip_forwarding(struct sr_instance* , uint8_t* , unsigned int , char*);
+
+struct sr_rt *sr_lookup_route(struct sr_rt* , uint32_t ip); // from sr_arpcache.h
+void sr_handle_arpreply(struct sr_instance* , sr_arp_hdr_t* , unsigned int , char*);
+
+void forward_packet(struct sr_instance* , unsigned int  , struct sr_if* , uint8_t* , struct sr_arpentry*);
+
+uint8_t* create_icmp_reply_packet(struct sr_instance* , uint8_t* , unsigned int , char* , struct sr_if* , sr_ip_hdr_t*);
+void icmp_11_error(struct sr_instance* , uint8_t* , unsigned int , char* , sr_ip_hdr_t*, sr_icmp_hdr_t *);
+void icmp_3_error(struct sr_instance* , uint8_t* , unsigned int , char* , sr_ip_hdr_t*, sr_icmp_hdr_t *);
 
 /* -- sr_if.c -- */
 struct sr_if *sr_get_interface(struct sr_instance*, const char* );
