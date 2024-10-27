@@ -72,6 +72,12 @@ void handle_ip_request(struct sr_instance* , sr_ip_hdr_t* , unsigned int , char*
 void handle_icmp_request(struct sr_instance* , sr_icmp_hdr_t* , unsigned int , char* , uint8_t*);
 void handle_icmp_reply(struct sr_instance* , sr_icmp_hdr_t* , unsigned int , char* , uint8_t*);
 
+void handle_icmp_error_reply(struct sr_instance* , unsigned int , struct sr_if* , struct sr_if* , sr_ip_hdr_t*);
+void handle_icmp_echo_reply(struct sr_instance* , unsigned int , struct sr_if* , struct sr_if* , sr_ip_hdr_t* , sr_icmp_hdr_t*);
+void sr_handle_ip_forwarding(struct sr_instance* , unsigned int , struct sr_if* , struct sr_if* , sr_ip_hdr_t*);
+
+struct sr_rt *sr_lookup_route(struct sr_instance *sr, uint32_t ip); // from sr_arpcache.h
+
 
 /* -- sr_if.c -- */
 struct sr_if *sr_get_interface(struct sr_instance*, const char* );

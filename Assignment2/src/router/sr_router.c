@@ -167,13 +167,13 @@ void sr_handle_arprequest(struct sr_instance* sr, sr_arp_hdr_t *arp_pkt, unsigne
     return;
   }
 
-  uint8_t *arp_reply = (uint8_t *) malloc(len) // same length as original arp packet
+  uint8_t *arp_reply = (uint8_t *) malloc(len); // same length as original arp packet
 
 
   // Ethernet Headers
   struct sr_ethernet_hdr *ethernet_hdr = (struct sr_ethernet_hdr *)arp_reply; 
   memcpy(ethernet_hdr->ether_dhost, ((sr_ethernet_hdr_t *) packet)->ether_shost, ETHER_ADDR_LEN); // broadcast
-  memcpy(ethernet_hdr->ether_shost = matching_iface->addr, ETHER_ADDR_LEN); // mac address that matches the interface for router
+  memcpy(ethernet_hdr->ether_shost, matching_iface->addr, ETHER_ADDR_LEN); // mac address that matches the interface for router
   ethernet_hdr->ether_type = htons(ETHERTYPE_ARP); 
 
   // ARP headers
@@ -215,7 +215,7 @@ void sr_handle_arpreply(struct sr_instance* sr, sr_arp_hdr_t *arp_pkt, unsigned 
   // In arpcache.c, I actually implement the part where the router asks, "Hey I'm the router, and I'm looking for mac address that corresponds to <ARP request's IP>"
 
   // check if the ARP reply is for us
-  struct sr_if *matching_iface = get_interface_from_ip(sr, arp_pkt->ar_tip)
+  struct sr_if *matching_iface = get_interface_from_ip(sr, arp_pkt->ar_tip);
   if(matching_iface == NULL) { // the ARP reply is not for us
     return;
   }
@@ -277,7 +277,7 @@ void handle_icmp_error_reply(struct sr_instance *sr, uint8_t *packet, unsigned i
                               struct sr_if *outgoing_iface, sr_ip_hdr_t *req_ip_hdr) {
     // Define the length for ICMP error (type 3 code 3) packet
     uint8_t *icmp_error_reply = create_icmp_reply_packet(sr, packet, error_len, incoming_iface_name, outgoing_iface, req_ip_hdr);
-    sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(icmp_reply + sizeof(sr_ethernet_hdr_t)); // need to grab IP to make small adjustments
+    sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(icmp_error_reply + sizeof(sr_ethernet_hdr_t)); // need to grab IP to make small adjustments
 
 
     ip_hdr->ip_off = htons(IP_DF);
@@ -371,7 +371,7 @@ void sr_handle_ip_forwarding(struct sr_instance* sr, uint8_t *forward_pkt, unsig
   // Find match for destination IP in routing table...
   // next_hop_mac_address = (matching function result)
 
-  struct sr_rt *rt = sr_lookup_route(sr->routing_table, cur_ip_hdr->ip_src);
+  struct sr_rt *rt = sr_lookup_route(sr->routing_table, forward_ip_hdr->ip_src);
   if (rt == NULL) {
     //send ICMP destination net unreachable
     icmp_3_error(sr, err_pkt, error_pkt_len, interface, ip_hdr, icmp_hdr);
@@ -381,13 +381,13 @@ void sr_handle_ip_forwarding(struct sr_instance* sr, uint8_t *forward_pkt, unsig
   struct sr_arpentry *entry = sr_arpcache_lookup(&sr->cache, forward_ip_hdr->ip_dst); // cache tells you 192.168.1.1 has mac address AAA...
   if (entry) {
     // send to next hop, just redo the layer 2 header of forward_ip_pkt, keep all else
-    forward_packet(sr, len, outgoing_if, forward_ip_pkt, entry);
+    forward_packet(sr, len, outgoing_if, forward_pkt, entry);
   } else {
     // No ARP entry was found, prepare packet to be placed into queue
-    memset(((sr_ethernet_hdr_t *) forward_ip_pkt)->ether_dhost, 0, ETHER_ADDR_LEN);
+    memset(((sr_ethernet_hdr_t *) forward_pkt)->ether_dhost, 0, ETHER_ADDR_LEN);
 
     // Place packet into the cache's queue, send ARP request
-    struct sr_arpreq *arp_req = sr_arpcache_queuereq(&sr->cache, forward_ip_pkt->ip_dst, forward_ip_pkt, len, outgoing_if->name);
+    struct sr_arpreq *arp_req = sr_arpcache_queuereq(&sr->cache, forward_ip_hdr->ip_dst, forward_pkt, len, outgoing_if->name);
     handle_arpreq(sr, arp_req);
   } 
 }
@@ -429,8 +429,8 @@ void icmp_3_error(struct sr_instance *sr, uint8_t *error_pkt, unsigned int error
 }
 
 
-create_ip_forwarding_error_packet(uint8_t * error_pkt, uint8_t * forward_ip_pkt, sr_if *incoming_if, 
-                                  size_t error_pkt_len, sr_ip_hdr_t *ip_hdr, sr_ethernet_hdr *eth_hdr) {
+create_ip_forwarding_error_packet(uint8_t * error_pkt, uint8_t * forward_ip_pkt, struct sr_if *incoming_if, 
+                                  size_t error_pkt_len, sr_ip_hdr_t *ip_hdr, sr_ethernet_hdr_t *eth_hdr) {
   // make ethernet headers
   memcpy(eth_hdr->ether_dhost, ((sr_ethernet_hdr_t *) forward_ip_pkt)->ether_shost, ETHER_ADDR_LEN);
   memcpy(eth_hdr->ether_shost, incoming_if->addr, ETHER_ADDR_LEN);
@@ -453,7 +453,7 @@ create_ip_forwarding_error_packet(uint8_t * error_pkt, uint8_t * forward_ip_pkt,
 }
 
 
-void forward_packet(struct sr_instance* sr, unsigned int len, struct sr_if outgoing_if, uint8_t *forward_ip_pkt, struct sr_arpentry entry) {
+void forward_packet(struct sr_instance* sr, unsigned int len, struct sr_if *outgoing_if, uint8_t *forward_ip_pkt, struct sr_arpentry *entry) {
     memcpy(((sr_ethernet_hdr_t *)forward_ip_pkt)->ether_dhost, entry->mac, ETHER_ADDR_LEN);
     memcpy(((sr_ethernet_hdr_t *)forward_ip_pkt)->ether_shost, outgoing_if->addr, ETHER_ADDR_LEN);
 
