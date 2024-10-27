@@ -83,7 +83,7 @@ void sr_handlepacket(struct sr_instance* sr,
 
   if(packet_type == ethertype_arp) {
       sr_arp_hdr_t *arp_pkt = (sr_arp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
-      uint16_t opcode = ntohs(arp_pkt->ar_op)
+      uint16_t opcode = ntohs(arp_pkt->ar_op);
       if (opcode == arp_op_request) {// it's a request
         handle_arp_request(sr, arp_pkt, len, interface, packet); 
       } else if (opcode == arp_op_reply) {
@@ -437,15 +437,15 @@ create_ip_forwarding_error_packet(uint8_t * error_pkt, uint8_t * forward_ip_pkt,
   eth_hdr->ether_type = htons(ethertype_ip);
 
   // make IP headers
-  ip_hdr->ip_hl = ((sr_ip_hdr_t *) forward_ip_pkt)->ip_hl;
-  ip_hdr->ip_v = ((sr_ip_hdr_t *) forward_ip_pkt)->ip_v;
+  ip_hdr->ip_hl = ip_hdr->ip_hl;
+  ip_hdr->ip_v = ip_hdr->ip_v;
   ip_hdr->ip_len = htons(error_pkt_len - sizeof(sr_ethernet_hdr_t));
   ip_hdr->ip_id = ip_hdr->ip_id;
   ip_hdr->ip_off = htons(IP_DF);
   ip_hdr->ip_ttl = INIT_TTL;
   ip_hdr->ip_p = ip_protocol_icmp;
   ip_hdr->ip_src = incoming_if->ip;
-  ip_hdr->ip_dst = forward_ip_hdr->ip_src;
+  ip_hdr->ip_dst = ip_hdr->ip_src;
 
   ip_hdr->ip_sum = 0;
 
