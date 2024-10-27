@@ -83,7 +83,7 @@ void sr_handlepacket(struct sr_instance* sr,
 
   if(packet_type == ethertype_arp) {
       sr_arp_hdr_t *arp_pkt = (sr_arp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
-      uint16_t opcode = ntohs(arp_pkt->ar_op)
+      uint16_t opcode = ntohs(arp_pkt->ar_op);
       if (opcode == arp_op_request) {// it's a request
         handle_arp_request(sr, arp_pkt, len, interface, packet);
       } else if (opcode == arp_op_reply) {
