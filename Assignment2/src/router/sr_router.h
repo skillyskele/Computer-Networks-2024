@@ -66,6 +66,12 @@ void sr_init(struct sr_instance* );
 void sr_handlepacket(struct sr_instance* , uint8_t * , unsigned int , char* );
 
 /* Add additional helper method declarations here! */
+void handle_arp_request(struct sr_instance* , sr_arp_hdr_t* , unsigned int , char* , uint8_t*);
+void handle_ip_request(struct sr_instance* , sr_ip_hdr_t* , unsigned int , char* , uint8_t*);
+
+void handle_icmp_request(struct sr_instance* , sr_icmp_hdr_t* , unsigned int , char* , uint8_t*);
+void handle_icmp_reply(struct sr_instance* , sr_icmp_hdr_t* , unsigned int , char* , uint8_t*);
+
 
 /* -- sr_if.c -- */
 struct sr_if *sr_get_interface(struct sr_instance*, const char* );

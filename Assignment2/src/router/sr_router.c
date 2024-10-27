@@ -83,9 +83,9 @@ void sr_handlepacket(struct sr_instance* sr,
 
   if(packet_type == ethertype_arp) {
       sr_arp_hdr_t *arp_pkt = (sr_arp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
-      uint16_t opcode = ntohs(arp_pkt->ar_op);
+      uint16_t opcode = ntohs(arp_pkt->ar_op)
       if (opcode == arp_op_request) {// it's a request
-        handle_arp_request(sr, arp_pkt, len, interface, packet);
+        handle_arp_request(sr, arp_pkt, len, interface, packet); 
       } else if (opcode == arp_op_reply) {
         sr_handle_arpreply(sr, arp_pkt, len, interface);
       } else {
@@ -116,7 +116,7 @@ void sr_handlepacket(struct sr_instance* sr,
 
         //check if ip packet meets minimum length
         //determine if ip packet is destined for router
-        struct sr_if *router_if = get_interface_from_ip(sr, ip_hdr->ip_dst);
+        struct sr_if *router_if = get_interface_from_ip(sr, req_ip_hdr->ip_dst);
         if (router_if) {
           // sr_ip_hdr_t *req_ip_hdr = (sr_ip_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t)); comment out since it was already done earlier above
           sr_icmp_hdr_t *req_icmp_hdr = (sr_icmp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
@@ -128,7 +128,7 @@ void sr_handlepacket(struct sr_instance* sr,
 
             }
             if (req_icmp_hdr->icmp_type == 8) {
-              handle_icmp_echo_reply(sr, len, interface, outgoing_iface,  req_ip_hdr, req_icmp_hdr)
+              handle_icmp_echo_reply(sr, len, interface, outgoing_iface,  req_ip_hdr, req_icmp_hdr);
             } 
           } else {
             // Debugging Print Statements
@@ -161,7 +161,7 @@ void sr_handle_arprequest(struct sr_instance* sr, sr_arp_hdr_t *arp_pkt, unsigne
           
 
   // check if target IP address is the router's IP address:
-  struct sr_if *matching_iface = get_interface_from_ip(sr, arp_pkt->ar_tip)
+  struct sr_if *matching_iface = get_interface_from_ip(sr, arp_pkt->ar_tip);
   
   if(matching_iface == NULL) { // router can have multiple interfaces for different networks, so search through them
     return;
