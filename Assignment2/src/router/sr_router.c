@@ -232,7 +232,7 @@ void sr_destined_for_router(struct sr_instance *sr, uint8_t *packet, unsigned in
   icmp_hdr->icmp_sum = cksum(icmp_hdr, sizeof(sr_icmp_hdr_t));
 
   // Send
-  if (sr_send_packet(sr, icmp_packet, icmp_packet_len, incoming_iface->name) == -1)
+  if (sr_send_packet(sr, icmp_packet, icmp_packet_len, interface) == -1)
   {
     fprintf(stderr, "Failed to send ICMP packet\n");
   }
