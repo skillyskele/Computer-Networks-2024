@@ -196,12 +196,14 @@ void sr_destined_for_router(struct sr_instance *sr, uint8_t *packet, unsigned in
   sr_icmp_hdr_t *icmp_hdr = (sr_icmp_hdr_t *)(icmp_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
   if (echo == 0) 
   {
+    printf("Creating ICMP destination unreachable since ECHO==0\n");
     icmp_hdr->icmp_type = 3; // Destination Unreachable
     icmp_hdr->icmp_code = 3; // Port Unreachable
     memcpy(icmp_hdr->data, (uint8_t *) req_ip_hdr, ICMP_DATA_SIZE); // Copy original data
   }
   else
   {
+    printf("Creating ICMP echo reply since ECHO==1\n");
     size_t icmp_hdr_len = icmp_packet_len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t);
     memcpy(icmp_hdr, req_icmp_hdr, icmp_hdr_len); // Copy original ICMP header
     icmp_hdr->icmp_type = 0; // Echo Reply
@@ -342,11 +344,6 @@ void sr_handle_ip_forwarding(struct sr_instance *sr, uint8_t *forward_pkt, unsig
 {
   // handle IP forwarding logic here
   // decrement TTL by 1
-  // grab IP header first
-  sr_ip_hdr_t *forward_ip_hdr = (sr_ip_hdr_t *)(forward_pkt + sizeof(sr_ethernet_hdr_t));
-  (forward_ip_hdr->ip_ttl)--;
-  forward_ip_hdr->ip_sum = 0;
-  forward_ip_hdr->ip_sum = cksum(forward_ip_hdr, sizeof(sr_ip_hdr_t));
 
   // prepare error messages ICMP type 11 and 3, all error messages will be sent directly back to sender, so send them out the same incoming interface
   struct sr_if *incoming_if = sr_get_interface(sr, interface);
@@ -360,7 +357,12 @@ void sr_handle_ip_forwarding(struct sr_instance *sr, uint8_t *forward_pkt, unsig
   sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *)error_pkt;
 
   // create packet
-  create_ip_forwarding_error_packet(error_pkt, forward_pkt, incoming_if, error_pkt_len, ip_hdr, eth_hdr);
+  create_ip_forwarding_error_packet(error_pkt, forward_pkt, incoming_if, error_pkt_len, ip_hdr, eth_hdr); // fill in ip_hdr and eth_hdr of error_pkt
+  
+  sr_ip_hdr_t *forward_ip_hdr = (sr_ip_hdr_t *)(forward_pkt + sizeof(sr_ethernet_hdr_t));
+  (forward_ip_hdr->ip_ttl)--;
+  forward_ip_hdr->ip_sum = 0;
+  forward_ip_hdr->ip_sum = cksum(forward_ip_hdr, sizeof(sr_ip_hdr_t)); // supposed to do this at the END
 
   // fill in some ICMP fields
   icmp_hdr->icmp_sum = 0;
@@ -451,24 +453,27 @@ void icmp_3_error(struct sr_instance *sr, uint8_t *error_pkt, size_t error_len, 
   return;
 }
 
-void create_ip_forwarding_error_packet(uint8_t *error_pkt, uint8_t *forward_ip_pkt, struct sr_if *incoming_if,
+void create_ip_forwarding_error_packet(uint8_t *error_pkt, uint8_t *forward_pkt, struct sr_if *incoming_if,
                                        size_t error_pkt_len, sr_ip_hdr_t *ip_hdr, sr_ethernet_hdr_t *eth_hdr)
 {
   // make ethernet headers
-  memcpy(eth_hdr->ether_dhost, ((sr_ethernet_hdr_t *)forward_ip_pkt)->ether_shost, ETHER_ADDR_LEN);
+  memcpy(eth_hdr->ether_dhost, ((sr_ethernet_hdr_t *)forward_pkt)->ether_shost, ETHER_ADDR_LEN);
   memcpy(eth_hdr->ether_shost, incoming_if->addr, ETHER_ADDR_LEN);
   eth_hdr->ether_type = htons(ethertype_ip);
 
+  // grab ip header of forward packet again
+  sr_ip_hdr_t *forward_ip_hdr = (sr_ip_hdr_t *)(forward_pkt + sizeof(sr_ethernet_hdr_t)); //hop_ip_hdr
+
   // make IP headers
-  ip_hdr->ip_hl = ip_hdr->ip_hl;
-  ip_hdr->ip_v = ip_hdr->ip_v;
+  ip_hdr->ip_hl = forward_ip_hdr->ip_hl;
+  ip_hdr->ip_v = forward_ip_hdr->ip_v;
   ip_hdr->ip_len = htons(error_pkt_len - sizeof(sr_ethernet_hdr_t));
-  ip_hdr->ip_id = ip_hdr->ip_id;
+  ip_hdr->ip_id = forward_ip_hdr->ip_id;
   ip_hdr->ip_off = htons(IP_DF);
   ip_hdr->ip_ttl = INIT_TTL;
   ip_hdr->ip_p = ip_protocol_icmp;
   ip_hdr->ip_src = incoming_if->ip;
-  ip_hdr->ip_dst = ip_hdr->ip_src;
+  ip_hdr->ip_dst = forward_ip_hdr->ip_src;
 
   ip_hdr->ip_sum = 0;
 
