@@ -248,7 +248,8 @@ void sr_destined_for_router(struct sr_instance *sr, uint8_t *packet, unsigned in
   {
     //printf("sr_destined_for_router: Sent ICMP packet\n");
   }
-  free(icmp_packet);
+  //free(icmp_packet);
+
 } /* end sr_destined_for_router */
 
 void sr_handle_arprequest(struct sr_instance *sr, sr_arp_hdr_t *arp_pkt, unsigned int len,
