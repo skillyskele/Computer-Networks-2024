@@ -46,7 +46,7 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
 
     if (request->times_sent >= 5) {
         // send icmp host unreachable
-        printf("Sending ICMP Host Unreachable for IP: %u\n", request->ip);
+        printf("handle_arpreq: Sending ICMP Host Unreachable for IP: %u\n", request->ip);
         // Figure out the length of your new icmp packet (hint: it will be the same length as the original packet if the original packet was an ICMP echo request. Otherwise, calculate it based on the size of the headers it will have).
         // Create a new icmp packet (hint: use malloc)
 
@@ -61,7 +61,7 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
                 fprintf(stderr, "Failed to allocate memory for ICMP packet\n");
                 return;
             }
-            printf("Allocated memory for ICMP packet of length %zu\n", icmp_packet_len);
+            printf("handle_arpreq: Allocated memory for ICMP packet of length %zu\n", icmp_packet_len);
 
             // get the original ip header of the packet, because we want to match its IP with its mac address using the routing table, and get other info from it
             sr_ip_hdr_t *cur_ip_hdr = (sr_ip_hdr_t *)(cur_pkt->buf + sizeof(sr_ethernet_hdr_t));
@@ -102,7 +102,7 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
             icmp_hdr->icmp_sum = cksum(icmp_hdr, sizeof(sr_icmp_hdr_t));
             ip_hdr->ip_sum = cksum(ip_hdr, sizeof(sr_ip_hdr_t));
 
-            printf("Sending ICMP packet to %u from %u\n", ip_hdr->ip_dst, ip_hdr->ip_src);
+            printf("handle_arpreq: Sending ICMP packet to %u from %u\n", ip_hdr->ip_dst, ip_hdr->ip_src);
 
             if (sr_send_packet(sr, icmp_packet, icmp_packet_len, return_iface->name) == -1) {
                 fprintf(stderr, "Failed to send packet\n");
