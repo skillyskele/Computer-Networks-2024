@@ -40,11 +40,13 @@ struct sr_rt *sr_lookup_route(struct sr_rt *cur_rt, uint32_t ip) {
 void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
     
     if (difftime(time(NULL), request->sent) <= 1.0) {
+        printf("ARP request sent recently, skipping...\n");
         return;
     }
 
     if (request->times_sent >= 5) {
         // send icmp host unreachable
+        printf("Sending ICMP Host Unreachable for IP: %u\n", request->ip);
         // Figure out the length of your new icmp packet (hint: it will be the same length as the original packet if the original packet was an ICMP echo request. Otherwise, calculate it based on the size of the headers it will have).
         // Create a new icmp packet (hint: use malloc)
 
@@ -53,6 +55,13 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
             // allocate memory for the icmp packet which consists of icmp header, ip header, and ethernet header
             size_t icmp_packet_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t);
             uint8_t *icmp_packet = (uint8_t *)malloc(icmp_packet_len);
+            
+            if (!icmp_packet)
+            {
+                fprintf(stderr, "Failed to allocate memory for ICMP packet\n");
+                return;
+            }
+            printf("Allocated memory for ICMP packet of length %zu\n", icmp_packet_len);
 
             // get the original ip header of the packet, because we want to match its IP with its mac address using the routing table, and get other info from it
             sr_ip_hdr_t *cur_ip_hdr = (sr_ip_hdr_t *)(cur_pkt->buf + sizeof(sr_ethernet_hdr_t));
@@ -92,6 +101,8 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
             // recompute checksum
             icmp_hdr->icmp_sum = cksum(icmp_hdr, sizeof(sr_icmp_hdr_t));
             ip_hdr->ip_sum = cksum(ip_hdr, sizeof(sr_ip_hdr_t));
+
+            printf("Sending ICMP packet to %u from %u\n", ip_hdr->ip_dst, ip_hdr->ip_src);
 
             if (sr_send_packet(sr, icmp_packet, icmp_packet_len, return_iface->name) == -1) {
                 fprintf(stderr, "Failed to send packet\n");
@@ -146,6 +157,8 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
         /* Send the packet */
         if (sr_send_packet(sr, arp_packet, arp_packet_len, request->packets->iface) == -1) {
             fprintf(stderr, "Failed to send ARP request\n");
+        } else {
+            printf("Sent ARP request for IP: %u\n", request->ip);
         }
         free(arp_packet);
 

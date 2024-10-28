@@ -383,6 +383,7 @@ void sr_handle_ip_forwarding(struct sr_instance *sr, uint8_t *forward_pkt, unsig
   if (rt == NULL)
   {
     // send ICMP destination net unreachable
+    printf("No route found. Sending ICMP Destination Unreachable.\n");
     icmp_3_error(sr, error_pkt, error_pkt_len, interface, ip_hdr, icmp_hdr);
   }
   struct sr_if *outgoing_if = sr_get_interface(sr, rt->interface); // rt tells you you need to send 192.168.1.10 to interface eth0, where it's 192.168.1.0
@@ -391,6 +392,7 @@ void sr_handle_ip_forwarding(struct sr_instance *sr, uint8_t *forward_pkt, unsig
   if (entry)
   {
     // send to next hop, just redo the layer 2 header of forward_ip_pkt, keep all else
+    printf("MAC address found. Forwarding packet to next hop.\n");
     forward_packet(sr, len, outgoing_if, forward_pkt, entry);
   }
   else
@@ -400,7 +402,9 @@ void sr_handle_ip_forwarding(struct sr_instance *sr, uint8_t *forward_pkt, unsig
 
     // Place packet into the cache's queue, send ARP request
     struct sr_arpreq *arp_req = sr_arpcache_queuereq(&sr->cache, forward_ip_hdr->ip_dst, forward_pkt, len, outgoing_if->name);
+    printf("No ARP entry found. Sending ARP request.\n");
     handle_arpreq(sr, arp_req);
+
   }
 }
 
