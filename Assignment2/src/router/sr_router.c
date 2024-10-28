@@ -130,28 +130,20 @@ void sr_handlepacket(struct sr_instance *sr,
     struct sr_if *router_if = get_interface_from_ip(sr, req_ip_hdr->ip_dst);
     if (router_if)
     {
+      printf("Received IP packet destined for router!!!\n");
       // sr_ip_hdr_t *req_ip_hdr = (sr_ip_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t)); comment out since it was already done earlier above
       sr_icmp_hdr_t *req_icmp_hdr = (sr_icmp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
-      struct sr_if *outgoing_iface = get_interface_from_ip(sr, req_ip_hdr->ip_dst);
-      if (outgoing_iface)
+      struct sr_if *outgoing_iface = router_if; 
+      if (req_ip_hdr->ip_p != ip_protocol_icmp)
       {
-        if (req_ip_hdr->ip_p != ip_protocol_icmp)
-        {
-          unsigned int error_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t);
-          handle_icmp_error_reply(sr, packet, error_len, interface, outgoing_iface, req_ip_hdr);
-        }
-        if (req_icmp_hdr->icmp_type == 8)
-        {
-          handle_icmp_echo_reply(sr, packet, len, interface, outgoing_iface, req_ip_hdr, req_icmp_hdr);
-        }
+        printf( "Received IP packet not ICMP, Type 3 Code 3\n");
+        sr_destined_for_router(sr, packet, len, interface, outgoing_iface, 0);
       }
-      else
-      {
-        // Debugging Print Statements
-        fprintf(stdout, "Handling IP (non-interface destined) packet:\n");
-        print_hdrs(packet, len);
-        fprintf(stdout, "\n");
-      }
+      if (req_icmp_hdr->icmp_type == 8)
+      { 
+        printf("Received ICMP echo request, preparing to echo!!!\n");
+        sr_destined_for_router(sr, packet, len, interface, outgoing_iface, 1);
+      }     
     }
     else
     {
@@ -168,6 +160,88 @@ them in sr_router.h.
 If you use any of these methods in sr_arpcache.c, you must also forward declare
 them in sr_arpcache.h to avoid circular dependencies. Since sr_router
 already imports sr_arpcache.h, sr_arpcache cannot import sr_router.h -KM */
+
+void sr_destined_for_router(struct sr_instance *sr, uint8_t *packet, unsigned int len, char *interface, struct sr_if *outgoing_iface, int echo)
+{
+  struct sr_if *incoming_iface = sr_get_interface(sr, interface);
+
+  // Create ICMP packet
+  size_t icmp_packet_len;
+  if (echo == 1) { // if it's an echo request
+    printf("Creating ICMP echo reply\n");
+    size_t icmp_packet_len = len; // same length as original packet, because it's an echo
+  } else { // if it's not an echo request
+    printf("Creating ICMP destination unreachable\n");
+    size_t icmp_packet_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t); // ICMP packet length
+  }
+  uint8_t *icmp_packet = (uint8_t *)malloc(icmp_packet_len);
+  if (!icmp_packet)
+  {
+    fprintf(stderr, "Failed to allocate memory for ICMP packet\n");
+    return;
+  }
+
+  // Get the original IP header and ICMP header
+  sr_ip_hdr_t *req_ip_hdr = (sr_ip_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
+  sr_icmp_hdr_t *req_icmp_hdr = (sr_icmp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
+  
+  // start making the packet, starting from ethernet header
+  sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *)icmp_packet;
+  memcpy(eth_hdr->ether_dhost, ((sr_ethernet_hdr_t *)packet)->ether_shost, ETHER_ADDR_LEN); // destination is the original source's mac address
+  memcpy(eth_hdr->ether_shost, incoming_iface->addr, ETHER_ADDR_LEN); // source is the router's interface's mac address
+  eth_hdr->ether_type = htons(ethertype_ip);
+  
+
+  // Populate ICMP header
+  sr_icmp_hdr_t *icmp_hdr = (sr_icmp_hdr_t *)(icmp_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
+  if (echo == 0) 
+  {
+    icmp_hdr->icmp_type = 3; // Destination Unreachable
+    icmp_hdr->icmp_code = 3; // Port Unreachable
+    memcpy(icmp_hdr->data, (uint8_t *) req_ip_hdr, ICMP_DATA_SIZE); // Copy original data
+  }
+  else
+  {
+    size_t icmp_hdr_len = icmp_packet_len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t);
+    memcpy(icmp_hdr, req_icmp_hdr, icmp_hdr_len); // Copy original ICMP header
+    icmp_hdr->icmp_type = 0; // Echo Reply
+    icmp_hdr->icmp_code = 0; // No code
+  }
+
+  icmp_hdr->icmp_sum = 0; // Checksum is 0
+
+  // Populate IP header
+  sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(icmp_packet + sizeof(sr_ethernet_hdr_t));
+  ip_hdr->ip_hl = req_ip_hdr->ip_hl;
+  ip_hdr->ip_v = req_ip_hdr->ip_v;
+  ip_hdr->ip_len = htons(icmp_packet_len - sizeof(sr_ethernet_hdr_t));
+  if (echo == 0)
+  {
+    ip_hdr->ip_off = htons(IP_DF);
+  }
+  ip_hdr->ip_id = req_ip_hdr->ip_id;
+  ip_hdr->ip_ttl = INIT_TTL;
+  ip_hdr->ip_p = ip_protocol_icmp;
+  ip_hdr->ip_sum = 0; // Checksum is 0
+  ip_hdr->ip_src = outgoing_iface->ip; // Source is the router's IP
+  ip_hdr->ip_dst = req_ip_hdr->ip_src; // Destination is the original source's IP
+  
+
+  // recompute checksums
+  ip_hdr->ip_sum = cksum(ip_hdr, sizeof(sr_ip_hdr_t));
+  icmp_hdr->icmp_sum = cksum(icmp_hdr, sizeof(sr_icmp_hdr_t));
+
+  // Send
+  if (sr_send_packet(sr, icmp_packet, icmp_packet_len, incoming_iface->name) == -1)
+  {
+    fprintf(stderr, "Failed to send ICMP packet\n");
+  }
+  else
+  {
+    printf("sr_destined_for_router: Sent ICMP packet\n");
+  }
+  free(icmp_packet);
+} /* end sr_destined_for_router */
 
 void sr_handle_arprequest(struct sr_instance *sr, sr_arp_hdr_t *arp_pkt, unsigned int len,
                           char *interface, uint8_t *packet)
@@ -262,88 +336,7 @@ void sr_handle_arpreply(struct sr_instance *sr, sr_arp_hdr_t *arp_pkt, unsigned 
   // Insert the MAC address & corresponing IP into the ARP cache
 }
 
-void handle_icmp_echo_reply(struct sr_instance *sr, uint8_t *packet, unsigned int reply_len, char *incoming_iface_name,
-                            struct sr_if *outgoing_iface, sr_ip_hdr_t *req_ip_hdr, sr_icmp_hdr_t *req_icmp_hdr)
-{
 
-  // Create reply packet
-  uint8_t *icmp_reply = create_icmp_reply_packet(sr, packet, reply_len, incoming_iface_name, outgoing_iface, req_ip_hdr);
-  sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(icmp_reply + sizeof(sr_ethernet_hdr_t)); // need to grab IP to make small adjustments
-
-  // Fill ICMP echo reply fields
-  sr_icmp_hdr_t *icmp_hdr = (sr_icmp_hdr_t *)(icmp_reply + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
-  size_t icmp_hdr_len = reply_len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t);
-  memcpy(icmp_hdr, req_icmp_hdr, icmp_hdr_len); // copy ICMP header, since it's an echo
-  icmp_hdr->icmp_type = 0;                      // Echo reply
-  icmp_hdr->icmp_code = 0;
-  icmp_hdr->icmp_sum = 0;
-
-  icmp_hdr->icmp_sum = cksum(icmp_hdr, sizeof(sr_icmp_hdr_t));
-  ip_hdr->ip_sum = cksum(ip_hdr, sizeof(sr_ip_hdr_t));
-
-  if (sr_send_packet(sr, icmp_reply, reply_len, incoming_iface_name) == -1)
-  {
-    fprintf(stderr, "Failed to send ICMP Echo Reply\n");
-  }
-  free(icmp_reply);
-}
-
-void handle_icmp_error_reply(struct sr_instance *sr, uint8_t *packet, size_t error_len, char *incoming_iface_name,
-                             struct sr_if *outgoing_iface, sr_ip_hdr_t *req_ip_hdr)
-{
-  // Define the length for ICMP error (type 3 code 3) packet
-  uint8_t *icmp_error_reply = create_icmp_reply_packet(sr, packet, error_len, incoming_iface_name, outgoing_iface, req_ip_hdr);
-  sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(icmp_error_reply + sizeof(sr_ethernet_hdr_t)); // need to grab IP to make small adjustments
-
-  ip_hdr->ip_off = htons(IP_DF);
-
-  // Fill ICMP error fields
-  sr_icmp_hdr_t *icmp_hdr = (sr_icmp_hdr_t *)(icmp_error_reply + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
-  icmp_hdr->icmp_type = 3; // Destination Unreachable
-  icmp_hdr->icmp_code = 3; // Port unreachable
-  icmp_hdr->icmp_sum = 0;
-  memcpy(icmp_hdr->data, (uint8_t *)req_ip_hdr, ICMP_DATA_SIZE);
-
-  icmp_hdr->icmp_sum = cksum(icmp_hdr, sizeof(sr_icmp_t3_hdr_t));
-  ip_hdr->ip_sum = cksum(ip_hdr, sizeof(sr_ip_hdr_t));
-
-  if (sr_send_packet(sr, icmp_error_reply, error_len, incoming_iface_name) == -1)
-  {
-    fprintf(stderr, "Failed to send ICMP Error Reply\n");
-  }
-  free(icmp_error_reply);
-}
-
-uint8_t *create_icmp_reply_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len, char *incoming_iface_name,
-                                  struct sr_if *outgoing_iface, sr_ip_hdr_t *req_ip_hdr)
-{
-  // Allocate memory for the reply packet
-  uint8_t *icmp_reply = (uint8_t *)malloc(len);
-
-  // Fill Ethernet header
-  sr_ethernet_hdr_t *req_ether_hdr = (sr_ethernet_hdr_t *)packet;
-  sr_ethernet_hdr_t *ether_hdr = (sr_ethernet_hdr_t *)icmp_reply;
-  memcpy(ether_hdr->ether_dhost, req_ether_hdr->ether_shost, ETHER_ADDR_LEN);
-  struct sr_if *incoming_iface = sr_get_interface(sr, incoming_iface_name);
-  memcpy(ether_hdr->ether_shost, incoming_iface->addr, ETHER_ADDR_LEN);
-  ether_hdr->ether_type = htons(ethertype_ip);
-
-  // Fill IP header
-  sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(icmp_reply + sizeof(sr_ethernet_hdr_t));
-  ip_hdr->ip_hl = req_ip_hdr->ip_hl;
-  ip_hdr->ip_v = req_ip_hdr->ip_v;
-  // ip_hdr->ip_tos = req_ip_hdr->ip_tos;
-  ip_hdr->ip_len = htons(len - sizeof(sr_ethernet_hdr_t)); // huh how does this make sense
-  ip_hdr->ip_id = req_ip_hdr->ip_id;
-  ip_hdr->ip_ttl = INIT_TTL;
-  ip_hdr->ip_p = ip_protocol_icmp;
-  ip_hdr->ip_src = outgoing_iface->ip;
-  ip_hdr->ip_dst = req_ip_hdr->ip_src;
-  ip_hdr->ip_sum = 0;
-  ip_hdr->ip_sum = cksum(ip_hdr, sizeof(sr_ip_hdr_t)); // huh
-
-  return icmp_reply;
-}
 
 void sr_handle_ip_forwarding(struct sr_instance *sr, uint8_t *forward_pkt, unsigned int len, char *interface)
 {

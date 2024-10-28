@@ -70,6 +70,7 @@ void sr_handle_arprequest(struct sr_instance *sr, sr_arp_hdr_t *arp_pkt, unsigne
                           char *interface, uint8_t *packet);
 void sr_handle_arpreply(struct sr_instance *sr, sr_arp_hdr_t *arp_pkt, unsigned int len,
                         char *interface);
+void sr_destined_for_router(struct sr_instance *sr, uint8_t *packet, unsigned int len, char *interface, struct sr_if *outgoing_iface, int echo);
 
     void handle_arp_request(struct sr_instance *, sr_arp_hdr_t *, unsigned int, char *, uint8_t *);
 void handle_ip_request(struct sr_instance* , sr_ip_hdr_t* , unsigned int , char* , uint8_t*);
