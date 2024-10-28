@@ -87,10 +87,12 @@ void sr_handlepacket(struct sr_instance *sr,
     uint16_t opcode = ntohs(arp_pkt->ar_op);
     if (opcode == arp_op_request)
     { // it's a request
+      printf("Received ARP request\n");
       sr_handle_arprequest(sr, arp_pkt, len, interface, packet);
     }
     else if (opcode == arp_op_reply)
     {
+      printf("Received ARP reply\n");
       sr_handle_arpreply(sr, arp_pkt, len, interface);
     }
     else
