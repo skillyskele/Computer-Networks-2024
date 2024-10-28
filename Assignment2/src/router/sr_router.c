@@ -178,8 +178,11 @@ void sr_handle_arprequest(struct sr_instance *sr, sr_arp_hdr_t *arp_pkt, unsigne
 
   if (matching_iface == NULL)
   { // router can have multiple interfaces for different networks, so search through them
+    printf("sr_handle_arprequest: ARP request not for us\n");
     return;
   }
+
+  printf("sr_handle_arprequest: creating arp reply to target: %u\n", arp_pkt->ar_tip);
 
   uint8_t *arp_reply = (uint8_t *)malloc(len); // same length as original arp packet
 
@@ -203,6 +206,8 @@ void sr_handle_arprequest(struct sr_instance *sr, sr_arp_hdr_t *arp_pkt, unsigne
   if (sr_send_packet(sr, arp_reply, len, interface) == -1)
   {
     fprintf(stderr, "Failed to send ARP reply\n");
+  } else {
+    printf("sr_handle_arprequest: Sent ARP reply for IP: %u\n", arp_pkt->ar_sip);
   }
   free(arp_reply);
 }
@@ -221,6 +226,7 @@ void sr_handle_arpreply(struct sr_instance *sr, sr_arp_hdr_t *arp_pkt, unsigned 
   struct sr_if *matching_iface = get_interface_from_ip(sr, arp_pkt->ar_tip);
   if (matching_iface == NULL)
   { // the ARP reply is not for us
+    printf("sr_handle_arpreply: ARP reply not for us\n");
     return;
   }
 
@@ -229,7 +235,7 @@ void sr_handle_arpreply(struct sr_instance *sr, sr_arp_hdr_t *arp_pkt, unsigned 
   if (request)
   {
     // If found, send off all packets on the request's pending packets list, then remove the request from the queue
-
+    printf("sr_handle_arpreply: Found matching request for IP: %u\n", arp_pkt->ar_sip);
     struct sr_packet *cur_pkt = request->packets;
     while (cur_pkt)
     {
@@ -243,6 +249,8 @@ void sr_handle_arpreply(struct sr_instance *sr, sr_arp_hdr_t *arp_pkt, unsigned 
       if (sr_send_packet(sr, cur_pkt->buf, cur_pkt->len, cur_pkt->iface) == -1)
       {
         fprintf(stderr, "ARP Reply: Failed to send queued packet\n");
+      } else {
+        printf("Sent queued packet to %u\n", arp_pkt->ar_sip);
       }
       cur_pkt = cur_pkt->next;
     }
