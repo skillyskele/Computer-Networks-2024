@@ -40,7 +40,7 @@ struct sr_rt *sr_lookup_route(struct sr_rt *cur_rt, uint32_t ip) {
 void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
     
     if (difftime(time(NULL), request->sent) <= 1.0) {
-        printf("ARP request sent recently, skipping...\n");
+        // printf("ARP request sent recently, skipping...\n");
         return;
     }
 
@@ -161,7 +161,7 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
             printf("handle_arpreq: Sent ARP request for IP: %u\n", request->ip);
         }
         printf("Sent this ARP packet: \n");
-        print_hdrs(arp_packet, arp_packet_len); 
+        //print_hdrs(arp_packet, arp_packet_len); 
         printf("\n");
         free(arp_packet);
 

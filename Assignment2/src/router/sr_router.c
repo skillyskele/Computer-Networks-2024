@@ -80,7 +80,7 @@ void sr_handlepacket(struct sr_instance *sr,
 
   /* fill in code here */
   uint16_t packet_type = ethertype(packet);
-
+  print_hdrs(packet, len);
   if (packet_type == ethertype_arp)
   {
     sr_arp_hdr_t *arp_pkt = (sr_arp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
@@ -104,8 +104,8 @@ void sr_handlepacket(struct sr_instance *sr,
   {
     // grab it's IP header
     sr_ip_hdr_t *req_ip_hdr = (sr_ip_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
-    printf("IP Packet of length %d was received.\n", len);
-    print_hdr_ip((uint8_t *)req_ip_hdr);
+    //printf("IP Packet of length %d was received.\n", len);
+    //print_hdr_ip((uint8_t *)req_ip_hdr);
 
     // verify checksum
     uint16_t ip_checksum = req_ip_hdr->ip_sum;
@@ -184,7 +184,7 @@ void sr_handle_arprequest(struct sr_instance *sr, sr_arp_hdr_t *arp_pkt, unsigne
     return;
   }
 
-  printf("sr_handle_arprequest: creating arp reply to target: %u\n", arp_pkt->ar_tip);
+  // printf("sr_handle_arprequest: creating arp reply to target: %u\n", arp_pkt->ar_tip);
 
   uint8_t *arp_reply = (uint8_t *)malloc(len); // same length as original arp packet
 
@@ -209,7 +209,7 @@ void sr_handle_arprequest(struct sr_instance *sr, sr_arp_hdr_t *arp_pkt, unsigne
   {
     fprintf(stderr, "Failed to send ARP reply\n");
   } else {
-    printf("sr_handle_arprequest: Sent ARP reply for IP: %u\n", arp_pkt->ar_sip);
+    // printf("sr_handle_arprequest: Sent ARP reply for IP: %u\n", arp_pkt->ar_sip);
   }
   free(arp_reply);
 }
