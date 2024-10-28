@@ -85,7 +85,7 @@ void sr_handlepacket(struct sr_instance* sr,
       sr_arp_hdr_t *arp_pkt = (sr_arp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
       uint16_t opcode = ntohs(arp_pkt->ar_op);
       if (opcode == arp_op_request) {// it's a request
-        handle_arp_request(sr, arp_pkt, len, interface, packet); 
+        sr_handle_arprequest(sr, arp_pkt, len, interface, packet); 
       } else if (opcode == arp_op_reply) {
         sr_handle_arpreply(sr, arp_pkt, len, interface);
       } else {
@@ -263,7 +263,7 @@ void handle_icmp_echo_reply(struct sr_instance *sr, uint8_t *packet, unsigned in
     free(icmp_reply);
 }
 
-void handle_icmp_error_reply(struct sr_instance *sr, uint8_t *packet, unsigned int error_len, char *incoming_iface_name,
+void handle_icmp_error_reply(struct sr_instance *sr, uint8_t *packet, size_t error_len, char *incoming_iface_name,
                               struct sr_if *outgoing_iface, sr_ip_hdr_t *req_ip_hdr) {
     // Define the length for ICMP error (type 3 code 3) packet
     uint8_t *icmp_error_reply = create_icmp_reply_packet(sr, packet, error_len, incoming_iface_name, outgoing_iface, req_ip_hdr);
@@ -273,7 +273,7 @@ void handle_icmp_error_reply(struct sr_instance *sr, uint8_t *packet, unsigned i
     ip_hdr->ip_off = htons(IP_DF);
 
     // Fill ICMP error fields
-    sr_icmp_t3_hdr_t *icmp_hdr = (sr_icmp_hdr_t *)(icmp_error_reply + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
+    sr_icmp_hdr_t *icmp_hdr = (sr_icmp_hdr_t *)(icmp_error_reply + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
     icmp_hdr->icmp_type = 3; // Destination Unreachable
     icmp_hdr->icmp_code = 3; // Port unreachable
     icmp_hdr->icmp_sum = 0;
@@ -288,7 +288,7 @@ void handle_icmp_error_reply(struct sr_instance *sr, uint8_t *packet, unsigned i
     free(icmp_error_reply);
 }
 
-uint8_t *create_icmp_reply_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len, char *incoming_iface_name, 
+uint8_t * create_icmp_reply_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len, char *incoming_iface_name, 
                                   struct sr_if *outgoing_iface, sr_ip_hdr_t *req_ip_hdr) {
     // Allocate memory for the reply packet
     uint8_t *icmp_reply = (uint8_t *)malloc(len);
@@ -382,7 +382,7 @@ void sr_handle_ip_forwarding(struct sr_instance* sr, uint8_t *forward_pkt, unsig
   } 
 }
 
-void icmp_11_error(struct sr_instance *sr, uint8_t *error_pkt, unsigned int error_len, char *interface, struct sr_ip_hdr_t *ip_hdr, struct sr_icmp_hdr_t *icmp_hdr) {
+void icmp_11_error(struct sr_instance *sr, uint8_t *error_pkt, size_t error_len, char *interface, sr_ip_hdr_t *ip_hdr, sr_icmp_hdr_t *icmp_hdr) {
   // send ICMP time exceeded packet
   icmp_hdr->icmp_type = 11;
   icmp_hdr->icmp_code = 0;
@@ -400,7 +400,7 @@ void icmp_11_error(struct sr_instance *sr, uint8_t *error_pkt, unsigned int erro
   return;
 }
 
-void icmp_3_error(struct sr_instance *sr, uint8_t *error_pkt, unsigned int error_len, char *interface, struct sr_ip_hdr_t *ip_hdr, struct sr_icmp_hdr_t *icmp_hdr) {
+void icmp_3_error(struct sr_instance *sr, uint8_t *error_pkt, size_t error_len, char *interface, sr_ip_hdr_t *ip_hdr, sr_icmp_hdr_t *icmp_hdr) {
   // send ICMP destination unreachable packet
   icmp_hdr->icmp_type = 3;
   icmp_hdr->icmp_code = 0;

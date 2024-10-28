@@ -29,7 +29,7 @@ struct sr_rt *sr_lookup_route(struct sr_rt *cur_rt, uint32_t ip) {
     // search through routing table to find the mac address of the destination ip
     while (cur_rt) {
         if (cur_rt->dest.s_addr == ip) {
-            return &(cur_rt->rt);
+            return cur_rt;
         }
         cur_rt = cur_rt->next;
     }
@@ -56,54 +56,38 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
 
             // get the original ip header of the packet, because we want to match its IP with its mac address using the routing table, and get other info from it
             sr_ip_hdr_t *cur_ip_hdr = (sr_ip_hdr_t *)(cur_pkt->buf + sizeof(sr_ethernet_hdr_t));
-            /*
-            ip_hdr->ip_src = return_if->ip; // 192.168.1.1
-            ip_hdr->ip_dst = cur_ip_hdr->ip_src; // 192.168.1.10
-            */
-
-            // uint8_t icmp_type; (set to the type # you are sending)
-            // uint8_t icmp_code; (set to the code # you are sending)
-            // uint16_t icmp_sum; (initially set to 0, compute cksum over the icmp header)
-            // uint8_t data[ICMP_DATA_SIZE]; (don’t set if it’s an echo reply, otherwise original packet ip header)
-
+            
+            // search through routing table to find the correct interface
+            struct sr_rt *rt = sr_lookup_route(sr->routing_table, cur_ip_hdr->ip_src);
+            struct sr_if *return_iface = sr_get_interface(sr, rt->interface); // match 192.168.1.10 with the interface 192.168.1.0/24, for example
+          
             // populate icmp header
-            struct sr_icmp_hdr_t *icmp_hdr = (struct sr_icmp_hdr_t *)(icmp_packet + sizeof(sr_ethernet_hdr_t) + sizeof(struct sr_ip_hdr_t));
+            sr_icmp_hdr_t *icmp_hdr = (sr_icmp_hdr_t *)(icmp_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
             icmp_hdr->icmp_type = 3; // 3 is destination unreachable
             icmp_hdr->icmp_code = 1; // 1 is host unreachable
             icmp_hdr->icmp_sum = 0; // checksum is 0`
             memcpy(icmp_hdr->data, cur_ip_hdr, ICMP_DATA_SIZE);
 
-            // populate IP headers
-            // uint8_t ip_tos; (just set to 0, as per reference binary) Don’t need to do this since you’re memsetting the IP header with the original IP header anyway.
-            // uint16_t ip_len; (set to packet length minus ethernet header size)
-            // uint16_t ip_off; (just set to IP_DF, as per the reference binary) UPDATE: Don’t do this for echo replies.
-            // uint8_t ip_ttl; (set to something reasonable, e.g. TTL_INIT = 255)
-            // uint8_t ip_p; (set to ip_protocol_icmp)
-            // uint16_t ip_sum; (initially set to 0, compute cksum over the ip header)
-            // uint32_t ip_src, (set to ip of our interface or outgoing interface based on whether the original packet was destined for us or not)
-            // unint32_t ip_dst; (set to original packet’s ip_src )
-
             sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(icmp_packet + sizeof(sr_ethernet_hdr_t));
+            ip_hdr->ip_hl = cur_ip_hdr->ip_hl;
+            ip_hdr->ip_v = cur_ip_hdr->ip_v;
             // ip_hdr->ip_tos = 0;
             ip_hdr->ip_len = htons(icmp_packet_len - sizeof(sr_ethernet_hdr_t));
             ip_hdr->ip_off = htons(IP_DF);
-            ip_hdr->ip_ttl = TTL_INIT;
-            ip_hdr->ip_p = IP_PROTOCOL_ICMP;
+            ip_hdr->ip_id = cur_ip_hdr->ip_id;
+            ip_hdr->ip_off = htons(IP_DF);
+            ip_hdr->ip_ttl = INIT_TTL;
+            ip_hdr->ip_p = ip_protocol_icmp;
             ip_hdr->ip_sum = 0;
             ip_hdr->ip_src = return_iface->ip;
             ip_hdr->ip_dst = cur_ip_hdr->ip_src;
 
 
-            // Populate Ethernet header
-            // search through routing table to find the correct interface
-            struct sr_rt *rt = sr_lookup_route(sr->routing_table, cur_ip_hdr->ip_src);
-            struct sr_if *return_iface = sr_get_interface(sr, rt->iface); // match 192.168.1.10 with the interface 192.168.1.0/24, for example
-            
-            
+            // Populate Ethernet header        
             sr_ethernet_hdr_t *ethernet_hdr = (sr_ethernet_hdr_t *)icmp_packet;
             memcpy(ethernet_hdr->ether_shost, return_iface->addr, ETHER_ADDR_LEN); // source is the router's interface's mac address
             memcpy(ethernet_hdr->ether_dhost, ((sr_ethernet_hdr_t *)(cur_pkt->buf))->ether_shost, ETHER_ADDR_LEN); // destination is back to the original source's mac address
-            ethernet_hdr->ether_type = htons(ETHERTYPE_IP);
+            ethernet_hdr->ether_type = htons(ethertype_ip);
 
             // recompute checksum
             icmp_hdr->icmp_sum = cksum(icmp_hdr, sizeof(sr_icmp_hdr_t));
@@ -120,7 +104,7 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
         sr_arpreq_destroy(&sr->cache, request);
     } else {
         // send arp request
-        struct sr_if *iface = sr_if_get_interface(sr, request->iface);
+        struct sr_if *iface = sr_get_interface(sr, request->packets->iface);
         if (!iface) {
             fprintf(stderr, "Interface not found\n");
             return;
@@ -131,10 +115,10 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
         uint8_t *arp_packet = (uint8_t *)malloc(arp_packet_len);
 
         /* Fill in the Ethernet Header */
-        struct sr_ethernet_hdr *ethernet_hdr = (struct sr_ethernet_hdr *)arp_packet; 
+        struct sr_ethernet_hdr *ethernet_hdr = (sr_ethernet_hdr_t *)arp_packet; 
         memset(ethernet_hdr->ether_dhost, 0xff, ETHER_ADDR_LEN); // broadcast
-        ethernet_hdr->ether_shost = iface->ether_addr; // source is the interface's mac address USE MEMCPY??
-        ethernet_hdr->ether_type = htons(ETHERTYPE_ARP); // USE MEMSET???
+        memcpy(ethernet_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN); // source is the interface's mac address USE MEMCPY??
+        ethernet_hdr->ether_type = htons(ethertype_arp); 
 
         /* Fill in the Arp Header */
         /*  unsigned short ar_hrd; (set to arp_hrd_ethernet)
@@ -148,19 +132,21 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
             uint32_t ar_tip; (set to current arpreq’s ip)
         */
 
-        struct sr_arp_hdr *arp_hdr = (struct sr_arp_hdr *)(arp_packet + sizeof(struct sr_ethernet_hdr));
-        arp_hdr->ar_hrd = htons(1);
-        arp_hdr->ar_pro = htons(ETHERTYPE_IP);
+        struct sr_arp_hdr *arp_hdr = (struct sr_arp_hdr *)(arp_packet + sizeof(sr_ethernet_hdr_t));
+        arp_hdr->ar_hrd = htons(arp_hrd_ethernet);
+        arp_hdr->ar_pro = htons(ethertype_ip);
         arp_hdr->ar_hln = ETHER_ADDR_LEN;
         arp_hdr->ar_pln = 4;
-        arp_hdr->ar_op = htons(1); // op code 1 is request, op code 2 is reply
-        memcpy(arp_hdr->ar_sha, iface->ether_addr, ETHER_ADDR_LEN);
+        arp_hdr->ar_op = htons(arp_op_request); // op code 1 is request, op code 2 is reply
+        memcpy(arp_hdr->ar_sha, iface->addr, ETHER_ADDR_LEN);
         arp_hdr->ar_sip = iface->ip; // source ip is the interface's ip
         memset(arp_hdr->ar_tha, 0xff, ETHER_ADDR_LEN); // broadcast
         arp_hdr->ar_tip = request->ip; // destination ip is the arpreq's ip
         
         /* Send the packet */
-        sr_send_packet(sr, arp_packet, arp_packet_len, iface->name);
+        if (sr_send_packet(sr, arp_packet, arp_packet_len, request->packets->iface) == -1) {
+            fprintf(stderr, "Failed to send ARP request\n");
+        }
         free(arp_packet);
 
         request->sent = time(NULL);

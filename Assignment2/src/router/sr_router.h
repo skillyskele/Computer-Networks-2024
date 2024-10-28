@@ -66,36 +66,41 @@ void sr_init(struct sr_instance* );
 void sr_handlepacket(struct sr_instance* , uint8_t * , unsigned int , char* );
 
 /* Add additional helper method declarations here! */
-void handle_arp_request(struct sr_instance* , sr_arp_hdr_t* , unsigned int , char* , uint8_t*);
+void sr_handle_arprequest(struct sr_instance *sr, sr_arp_hdr_t *arp_pkt, unsigned int len,
+                          char *interface, uint8_t *packet);
+void sr_handle_arpreply(struct sr_instance *sr, sr_arp_hdr_t *arp_pkt, unsigned int len,
+                        char *interface);
+
+    void handle_arp_request(struct sr_instance *, sr_arp_hdr_t *, unsigned int, char *, uint8_t *);
 void handle_ip_request(struct sr_instance* , sr_ip_hdr_t* , unsigned int , char* , uint8_t*);
 
 void handle_icmp_request(struct sr_instance* , sr_icmp_hdr_t* , unsigned int , char* , uint8_t*);
 void handle_icmp_reply(struct sr_instance* , sr_icmp_hdr_t* , unsigned int , char* , uint8_t*);
 
-void handle_icmp_error_reply(struct sr_instance* , uint8_t* , unsigned int , char* , struct sr_if*, sr_ip_hdr_t*);
-void handle_icmp_echo_reply(struct sr_instance* , uint8_t* , unsigned int , char* , struct sr_if* , sr_ip_hdr_t* , sr_icmp_hdr_t*);
-uint8_t* create_icmp_replypacket(struct sr_instance* , uint8_t* , unsigned int , char* , struct sr_if* , sr_ip_hdr_t*);
+void handle_icmp_error_reply(struct sr_instance* , uint8_t *, size_t , char* , struct sr_if* , sr_ip_hdr_t*);
+void handle_icmp_echo_reply(struct sr_instance* , uint8_t*, unsigned int , char*, struct sr_if* , sr_ip_hdr_t* , sr_icmp_hdr_t*);
 
-void create_ip_forwarding_error_packet(uint8_t* , uint8_t* , struct sr_if* , size_t , sr_ip_hdr_t* , sr_ethernet_hdr_t*);
+void icmp_11_error(struct sr_instance *, uint8_t *, size_t, char *,  sr_ip_hdr_t *, sr_icmp_hdr_t *);
+void icmp_3_error(struct sr_instance *, uint8_t *, size_t, char *, sr_ip_hdr_t *, sr_icmp_hdr_t *);
 
-void sr_handle_ip_forwarding(struct sr_instance* , uint8_t* , unsigned int , char*);
+void forward_packet(struct sr_instance *, unsigned int, struct sr_if *, uint8_t *, struct sr_arpentry *);
+void sr_handle_ip_forwarding(struct sr_instance *sr, uint8_t *forward_pkt, unsigned int len, char *interface);
 
-struct sr_rt *sr_lookup_route(struct sr_rt* , uint32_t ip); // from sr_arpcache.h
-void sr_handle_arpreply(struct sr_instance* , sr_arp_hdr_t* , unsigned int , char*);
+void create_ip_forwarding_error_packet(uint8_t * error_pkt, uint8_t * forward_ip_pkt, struct sr_if * incoming_if,
+                                         size_t error_pkt_len, sr_ip_hdr_t * ip_hdr, sr_ethernet_hdr_t * eth_hdr);
 
-void forward_packet(struct sr_instance* , unsigned int  , struct sr_if* , uint8_t* , struct sr_arpentry*);
+uint8_t *create_icmp_reply_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len,
+                                  char *incoming_iface_name, struct sr_if *outgoing_iface, sr_ip_hdr_t *req_ip_hdr);
 
-uint8_t* create_icmp_reply_packet(struct sr_instance* , uint8_t* , unsigned int , char* , struct sr_if* , sr_ip_hdr_t*);
-void icmp_11_error(struct sr_instance* , uint8_t* , unsigned int , char* , sr_ip_hdr_t*, sr_icmp_hdr_t *);
-void icmp_3_error(struct sr_instance* , uint8_t* , unsigned int , char* , sr_ip_hdr_t*, sr_icmp_hdr_t *);
+struct sr_rt *sr_lookup_route(struct sr_rt *, uint32_t ip); // from sr_arpcache.h
 
 /* -- sr_if.c -- */
-struct sr_if *sr_get_interface(struct sr_instance*, const char* );
-struct sr_if *get_interface_from_ip(struct sr_instance*, uint32_t );
+struct sr_if *sr_get_interface(struct sr_instance *, const char *);
+struct sr_if *get_interface_from_ip(struct sr_instance *, uint32_t);
 struct sr_if *get_interface_from_eth(struct sr_instance *, uint8_t *);
-void sr_add_interface(struct sr_instance* , const char* );
-void sr_set_ether_ip(struct sr_instance* , uint32_t );
-void sr_set_ether_addr(struct sr_instance* , const unsigned char* );
-void sr_print_if_list(struct sr_instance* );
+void sr_add_interface(struct sr_instance *, const char *);
+void sr_set_ether_ip(struct sr_instance *, uint32_t);
+void sr_set_ether_addr(struct sr_instance *, const unsigned char *);
+void sr_print_if_list(struct sr_instance *);
 
 #endif /* SR_ROUTER_H */

@@ -70,6 +70,9 @@
 #include <time.h>
 #include <pthread.h>
 #include "sr_if.h"
+#include "sr_rt.h"
+#include "sr_protocol.h"
+#include "sr_utils.h"
 
 #define SR_ARPCACHE_SZ    100
 #define SR_ARPCACHE_TO    15.0
@@ -108,7 +111,6 @@ struct sr_arpcache {
 
 /* Checks if an IP->MAC mapping is in the cache. IP is in network byte order.
    You must free the returned structure if it is not NULL. */
-struct sr_arpentry *sr_arpcache_lookup(struct sr_arpcache *cache, uint32_t ip);
 
 /* Adds an ARP request to the ARP request queue. If the request is already on
    the queue, adds the packet to the linked list of packets for this sr_arpreq
@@ -147,6 +149,8 @@ int   sr_arpcache_init(struct sr_arpcache *cache);
 int   sr_arpcache_destroy(struct sr_arpcache *cache);
 void *sr_arpcache_timeout(void *cache_ptr);
 void handle_arpreq(struct sr_instance *, struct sr_arpreq *);
+
+struct sr_arpentry *sr_arpcache_lookup(struct sr_arpcache *cache, uint32_t ip);
 
 /* IMPORTANT: To avoid circular dependencies, do a forward declaration of any
 methods from other files that you need to use. For example, if your sr_arpcache
