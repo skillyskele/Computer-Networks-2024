@@ -106,6 +106,8 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
 
             if (sr_send_packet(sr, icmp_packet, icmp_packet_len, return_iface->name) == -1) {
                 fprintf(stderr, "Failed to send packet\n");
+            } else {
+                printf("handle_arpreq: Sent ICMP Host Unreachable\n");
             }
             free(icmp_packet);
             cur_pkt = cur_pkt->next; // go take care of the next packet
@@ -155,10 +157,11 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
         arp_hdr->ar_tip = request->ip; // destination ip is the arpreq's ip
         
         /* Send the packet */
+        printf("handle_arpreq: Created ARP request for IP: %u\n", request->ip);
         if (sr_send_packet(sr, arp_packet, arp_packet_len, request->packets->iface) == -1) {
             fprintf(stderr, "Failed to send ARP request\n");
         } else {
-            printf("Sent ARP request for IP: %u\n", request->ip);
+            printf("handle_arpreq: Sent ARP request for IP: %u\n", request->ip);
         }
         free(arp_packet);
 
