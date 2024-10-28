@@ -169,10 +169,10 @@ void sr_destined_for_router(struct sr_instance *sr, uint8_t *packet, unsigned in
   size_t icmp_packet_len;
   if (echo == 1) { // if it's an echo request
     printf("Creating ICMP echo reply\n");
-    size_t icmp_packet_len = len; // same length as original packet, because it's an echo
+    icmp_packet_len = len; // same length as original packet, because it's an echo
   } else { // if it's not an echo request
     printf("Creating ICMP destination unreachable\n");
-    size_t icmp_packet_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t); // ICMP packet length
+    icmp_packet_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t); // ICMP packet length
   }
   uint8_t *icmp_packet = (uint8_t *)malloc(icmp_packet_len);
   if (!icmp_packet)
