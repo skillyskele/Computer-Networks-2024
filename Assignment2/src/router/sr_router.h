@@ -72,7 +72,7 @@ void sr_handle_arpreply(struct sr_instance *sr, sr_arp_hdr_t *arp_pkt, unsigned 
                         char *interface);
 void sr_destined_for_router(struct sr_instance *sr, uint8_t *packet, unsigned int len, char *interface, struct sr_if *outgoing_iface, int echo);
 
-    void handle_arp_request(struct sr_instance *, sr_arp_hdr_t *, unsigned int, char *, uint8_t *);
+void handle_arp_request(struct sr_instance *, sr_arp_hdr_t *, unsigned int, char *, uint8_t *);
 void handle_ip_request(struct sr_instance* , sr_ip_hdr_t* , unsigned int , char* , uint8_t*);
 
 void handle_icmp_request(struct sr_instance* , sr_icmp_hdr_t* , unsigned int , char* , uint8_t*);
@@ -81,17 +81,17 @@ void handle_icmp_reply(struct sr_instance* , sr_icmp_hdr_t* , unsigned int , cha
 void handle_icmp_error_reply(struct sr_instance* , uint8_t *, size_t , char* , struct sr_if* , sr_ip_hdr_t*);
 void handle_icmp_echo_reply(struct sr_instance* , uint8_t*, unsigned int , char*, struct sr_if* , sr_ip_hdr_t* , sr_icmp_hdr_t*);
 
-void icmp_11_error(struct sr_instance *, uint8_t *, size_t, char *,  sr_ip_hdr_t *, sr_icmp_hdr_t *);
-void icmp_3_error(struct sr_instance *, uint8_t *, size_t, char *, sr_ip_hdr_t *, sr_icmp_hdr_t *);
+void icmp_11_error(struct sr_instance *sr, uint8_t *error_pkt, size_t error_len, char *interface);
+void icmp_3_error(struct sr_instance *sr, uint8_t *error_pkt, size_t error_len, char *interface);
 
 void forward_packet(struct sr_instance *, unsigned int, struct sr_if *, uint8_t *, struct sr_arpentry *);
 void sr_handle_ip_forwarding(struct sr_instance *sr, uint8_t *forward_pkt, unsigned int len, char *interface);
 
-void create_ip_forwarding_error_packet(uint8_t * error_pkt, uint8_t * forward_ip_pkt, struct sr_if * incoming_if,
-                                         size_t error_pkt_len, sr_ip_hdr_t * ip_hdr, sr_ethernet_hdr_t * eth_hdr);
+void create_ip_forwarding_error_packet(uint8_t *error_pkt, uint8_t *forward_pkt, struct sr_if *incoming_if,
+                                       size_t error_pkt_len);
 
 uint8_t *create_icmp_reply_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len,
-                                  char *incoming_iface_name, struct sr_if *outgoing_iface, sr_ip_hdr_t *req_ip_hdr);
+                                      char *incoming_iface_name, struct sr_if *outgoing_iface, sr_ip_hdr_t *req_ip_hdr);
 
 struct sr_rt *sr_lookup_route(struct sr_rt *, uint32_t ip); // from sr_arpcache.h
 
