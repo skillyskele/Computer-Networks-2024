@@ -231,7 +231,12 @@ void sr_destined_for_router(struct sr_instance *sr, uint8_t *packet, unsigned in
 
   // recompute checksums
   ip_hdr->ip_sum = cksum(ip_hdr, sizeof(sr_ip_hdr_t));
-  icmp_hdr->icmp_sum = cksum(icmp_hdr, sizeof(sr_icmp_hdr_t));
+  if (echo == 1) {
+    size_t icmp_hdr_len = icmp_packet_len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t);
+    icmp_hdr->icmp_sum = cksum(icmp_hdr, icmp_hdr_len);
+  } else {
+    icmp_hdr->icmp_sum = cksum(icmp_hdr, sizeof(sr_icmp_hdr_t));
+  }
 
   // Send
   print_hdrs(icmp_packet, icmp_packet_len);
