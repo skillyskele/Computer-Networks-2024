@@ -389,7 +389,7 @@ void sr_handle_ip_forwarding(struct sr_instance *sr, uint8_t *forward_pkt, unsig
   // Find match for destination IP in routing table...
   // next_hop_mac_address = (matching function result)
 
-  struct sr_rt *rt = sr_lookup_route(sr->routing_table, forward_ip_hdr->ip_src);
+  struct sr_rt *rt = sr_lookup_route(sr->routing_table, forward_ip_hdr->ip_dst);
   if (rt == NULL)
   {
     // send ICMP destination net unreachable
