@@ -84,7 +84,6 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
             ip_hdr->ip_len = htons(icmp_packet_len - sizeof(sr_ethernet_hdr_t));
             ip_hdr->ip_off = htons(IP_DF);
             ip_hdr->ip_id = cur_ip_hdr->ip_id;
-            ip_hdr->ip_off = htons(IP_DF);
             ip_hdr->ip_ttl = INIT_TTL;
             ip_hdr->ip_p = ip_protocol_icmp;
             ip_hdr->ip_sum = 0;
@@ -111,8 +110,6 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
             }
             free(icmp_packet);
             cur_pkt = cur_pkt->next; // go take care of the next packet
-            
-
         }
         sr_arpreq_destroy(&sr->cache, request);
     } else {
@@ -163,6 +160,9 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
         } else {
             printf("handle_arpreq: Sent ARP request for IP: %u\n", request->ip);
         }
+        printf("Sent this ARP packet: \n");
+        print_hdrs(arp_packet, arp_packet_len); 
+        printf("\n");
         free(arp_packet);
 
         request->sent = time(NULL);
