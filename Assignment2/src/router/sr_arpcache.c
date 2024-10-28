@@ -121,28 +121,17 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
         }
         
         /* Arp Request Packet consists of Ethernet Header and Arp Header*/
-        size_t arp_packet_len = sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr);
+        size_t arp_packet_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t);
         uint8_t *arp_packet = (uint8_t *)malloc(arp_packet_len);
 
         /* Fill in the Ethernet Header */
-        struct sr_ethernet_hdr *ethernet_hdr = (sr_ethernet_hdr_t *)arp_packet; 
+        sr_ethernet_hdr_t *ethernet_hdr = (sr_ethernet_hdr_t *)arp_packet; 
         memset(ethernet_hdr->ether_dhost, 0xff, ETHER_ADDR_LEN); // broadcast
         memcpy(ethernet_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN); // source is the interface's mac address USE MEMCPY??
         ethernet_hdr->ether_type = htons(ethertype_arp); 
 
-        /* Fill in the Arp Header */
-        /*  unsigned short ar_hrd; (set to arp_hrd_ethernet)
-            unsigned short ar_pro;  (set to ethertype_ip)
-            unsigned char ar_hln; (set to length of a mac address)
-            unsigned char ar_pln;  (set to length of an IP address)
-            unsigned short ar_op; (set to ar_op_request)
-            unsigned char ar_sha[ETHER_ADDR_LEN];  (set to the current arpreq’s first packet’s interface’s addr)
-            uint32_t ar_sip; (set to current arpreq’s first packet’s interface’s ip)
-            unsigned char ar_tha[ETHER_ADDR_LEN];  (set to 0xff, since broadcasted)
-            uint32_t ar_tip; (set to current arpreq’s ip)
-        */
-
-        struct sr_arp_hdr *arp_hdr = (struct sr_arp_hdr *)(arp_packet + sizeof(sr_ethernet_hdr_t));
+        /* Fill in the ARP Header */
+        sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(arp_packet + sizeof(sr_ethernet_hdr_t));
         arp_hdr->ar_hrd = htons(arp_hrd_ethernet);
         arp_hdr->ar_pro = htons(ethertype_ip);
         arp_hdr->ar_hln = ETHER_ADDR_LEN;
