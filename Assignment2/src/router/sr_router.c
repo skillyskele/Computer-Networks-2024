@@ -443,7 +443,7 @@ void icmp_11_error(struct sr_instance *sr, uint8_t *error_pkt, size_t error_len,
   {
     fprintf(stderr, "Failed to send ICMP Time Exceeded\n");
   }
-  free(error_pkt);
+  // free(error_pkt);
   return;
 }
 
@@ -464,7 +464,7 @@ void icmp_3_error(struct sr_instance *sr, uint8_t *error_pkt, size_t error_len, 
   {
     fprintf(stderr, "Failed to send ICMP Destination Unreachable\n");
   }
-  free(error_pkt);
+  // free(error_pkt);
   return;
 }
 
