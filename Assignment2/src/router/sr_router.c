@@ -322,7 +322,7 @@ void sr_handle_arpreply(struct sr_instance *sr, sr_arp_hdr_t *arp_pkt, unsigned 
       memcpy(ethernet_hdr->ether_dhost, arp_pkt->ar_sha, ETHER_ADDR_LEN);      // destination is the mac address from the arp reply
       memcpy(ethernet_hdr->ether_shost, matching_iface->addr, ETHER_ADDR_LEN); // source is the router's interface's mac address
 
-      if (sr_send_packet(sr, cur_pkt->buf, cur_pkt->len, cur_pkt->iface) == -1)
+      if (sr_send_packet(sr, cur_pkt->buf, cur_pkt->len, matching_iface->name) == -1)
       {
         fprintf(stderr, "ARP Reply: Failed to send queued packet\n");
       } else {
