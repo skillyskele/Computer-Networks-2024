@@ -234,13 +234,14 @@ void sr_destined_for_router(struct sr_instance *sr, uint8_t *packet, unsigned in
   icmp_hdr->icmp_sum = cksum(icmp_hdr, sizeof(sr_icmp_hdr_t));
 
   // Send
+  print_hdrs(icmp_packet, icmp_packet_len);
   if (sr_send_packet(sr, icmp_packet, icmp_packet_len, interface) == -1)
   {
     fprintf(stderr, "Failed to send ICMP packet\n");
   }
   else
   {
-    printf("sr_destined_for_router: Sent ICMP packet\n");
+    //printf("sr_destined_for_router: Sent ICMP packet\n");
   }
   free(icmp_packet);
 } /* end sr_destined_for_router */
